@@ -1,0 +1,1072 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>March Madness 2026 Pool</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0c10;
+    --surface: #12161f;
+    --surface2: #1a202e;
+    --border: #2a3245;
+    --accent: #e85d26;
+    --accent2: #f7a928;
+    --text: #e8eaf0;
+    --muted: #6b7a99;
+    --green: #22c55e;
+    --blue: #3b82f6;
+    --gold: #f59e0b;
+    --silver: #94a3b8;
+    --bronze: #cd7c3a;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-serif; min-height: 100vh; }
+
+  /* HEADER */
+  header {
+    background: linear-gradient(135deg, #0f1420 0%, #1a0d05 50%, #0f1420 100%);
+    border-bottom: 2px solid var(--accent);
+    padding: 0 24px;
+    display: flex; align-items: center; justify-content: space-between;
+    height: 70px;
+    position: sticky; top: 0; z-index: 100;
+    box-shadow: 0 4px 24px rgba(232,93,38,0.15);
+  }
+  .logo { font-family: 'Bebas Neue', cursive; font-size: 2rem; letter-spacing: 2px; color: var(--text); }
+  .logo span { color: var(--accent); }
+  .header-right { display: flex; align-items: center; gap: 16px; }
+  .live-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--green); animation: pulse 1.4s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.5;transform:scale(1.3)} }
+  .refresh-info { font-size: 12px; color: var(--muted); }
+  #last-updated { color: var(--accent2); font-weight: 600; }
+
+  /* MAIN LAYOUT */
+  main { max-width: 1200px; margin: 0 auto; padding: 24px 16px; }
+
+  /* TABS */
+  .tabs { display: flex; gap: 4px; margin-bottom: 24px; border-bottom: 1px solid var(--border); }
+  .tab {
+    padding: 10px 20px; cursor: pointer; border-radius: 6px 6px 0 0;
+    font-size: 14px; font-weight: 600; color: var(--muted);
+    border: 1px solid transparent; border-bottom: none;
+    transition: all .2s;
+  }
+  .tab.active { background: var(--surface); color: var(--text); border-color: var(--border); margin-bottom: -1px; }
+  .tab:hover:not(.active) { color: var(--text); }
+
+  /* PANELS */
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  /* LEADERBOARD */
+  .leaderboard-grid {
+    display: grid; gap: 12px;
+  }
+  .participant-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px 20px;
+    display: grid;
+    grid-template-columns: 48px 1fr auto;
+    align-items: center;
+    gap: 16px;
+    transition: border-color .2s, transform .15s;
+    cursor: pointer;
+  }
+  .participant-card:hover { border-color: var(--accent); transform: translateY(-1px); }
+  .participant-card.rank-1 { border-color: var(--gold); background: linear-gradient(135deg, #1a1608 0%, #12161f 100%); }
+  .participant-card.rank-2 { border-color: var(--silver); }
+  .participant-card.rank-3 { border-color: var(--bronze); }
+
+  .rank-badge {
+    width: 40px; height: 40px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Bebas Neue', cursive; font-size: 1.3rem;
+    background: var(--surface2); color: var(--muted);
+  }
+  .rank-badge.r1 { background: var(--gold); color: #000; }
+  .rank-badge.r2 { background: var(--silver); color: #000; }
+  .rank-badge.r3 { background: var(--bronze); color: #000; }
+
+  .participant-info h3 { font-size: 1.05rem; font-weight: 700; margin-bottom: 4px; }
+  .participant-teams { display: flex; flex-wrap: wrap; gap: 6px; }
+  .team-pill {
+    font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 20px;
+    border: 1px solid var(--border); color: var(--muted);
+    display: flex; align-items: center; gap: 4px;
+  }
+  .team-pill.alive { border-color: var(--green); color: var(--green); background: rgba(34,197,94,.08); }
+  .team-pill.eliminated { text-decoration: line-through; opacity: .45; }
+  .team-pill .seed-num { font-size: 10px; opacity: .7; }
+
+  .score-display { text-align: right; }
+  .score-total { font-family: 'Bebas Neue', cursive; font-size: 2.2rem; line-height: 1; color: var(--accent); }
+  .score-breakdown { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+  /* SCORES PANEL */
+  .round-section { margin-bottom: 28px; }
+  .round-label {
+    font-family: 'Bebas Neue', cursive; font-size: 1.4rem; letter-spacing: 1px;
+    color: var(--accent2); margin-bottom: 12px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .round-label::after { content:''; flex:1; height:1px; background: var(--border); }
+
+  .games-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 10px; }
+  .game-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+    padding: 12px 14px; font-size: 13px;
+  }
+  .game-card.live { border-color: var(--accent); box-shadow: 0 0 12px rgba(232,93,38,.2); }
+  .game-card.final { border-color: var(--border); opacity: .85; }
+  .game-status {
+    font-size: 11px; font-weight: 700; letter-spacing: .5px; margin-bottom: 8px;
+    text-transform: uppercase;
+  }
+  .game-status.live { color: var(--accent); }
+  .game-status.final { color: var(--muted); }
+  .game-status.scheduled { color: var(--blue); }
+  .game-team {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 4px 0;
+  }
+  .game-team:first-of-type { border-bottom: 1px solid var(--border); }
+  .team-name-row { display: flex; align-items: center; gap: 6px; }
+  .seed-badge {
+    width: 20px; height: 20px; background: var(--surface2); border-radius: 4px;
+    font-size: 10px; font-weight: 700; display: flex; align-items: center; justify-content: center;
+    color: var(--muted); flex-shrink: 0;
+  }
+  .team-score { font-weight: 700; font-size: 15px; }
+  .team-score.winning { color: var(--green); }
+  .in-pool-indicator { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); flex-shrink: 0; }
+
+  /* STANDINGS TABLE - TEAMS */
+  .teams-table { width: 100%; border-collapse: collapse; }
+  .teams-table th {
+    text-align: left; padding: 10px 12px; font-size: 11px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: .5px; color: var(--muted);
+    border-bottom: 1px solid var(--border);
+  }
+  .teams-table td { padding: 9px 12px; font-size: 13px; border-bottom: 1px solid var(--border); }
+  .teams-table tr:hover td { background: var(--surface2); }
+  .status-alive { color: var(--green); font-weight: 600; }
+  .status-elim { color: var(--muted); font-weight: 400; }
+
+  /* SETUP MODAL */
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,.85); z-index: 1000;
+    display: flex; align-items: center; justify-content: center; padding: 16px;
+  }
+  .modal-overlay.hidden { display: none; }
+  .modal {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
+    padding: 32px; max-width: 700px; width: 100%; max-height: 90vh; overflow-y: auto;
+  }
+  .modal h2 { font-family: 'Bebas Neue', cursive; font-size: 1.8rem; margin-bottom: 8px; }
+  .modal p { color: var(--muted); font-size: 13px; margin-bottom: 24px; }
+  .modal label { display: block; font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 4px; margin-top: 12px; }
+  .modal input, .modal select {
+    width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
+    padding: 9px 12px; color: var(--text); font-size: 14px; font-family: 'Inter', sans-serif;
+  }
+  .modal input:focus, .modal select:focus { outline: none; border-color: var(--accent); }
+  .btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 10px 20px; border-radius: 8px; font-weight: 700; font-size: 14px;
+    cursor: pointer; border: none; transition: all .2s; font-family: 'Inter', sans-serif;
+  }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-primary:hover { background: #d44f1c; }
+  .btn-ghost { background: transparent; color: var(--muted); border: 1px solid var(--border); }
+  .btn-ghost:hover { color: var(--text); border-color: var(--text); }
+  .btn-row { display: flex; gap: 12px; margin-top: 24px; flex-wrap: wrap; }
+
+  .participant-entry {
+    background: var(--surface2); border-radius: 10px; padding: 16px; margin-bottom: 12px;
+    border: 1px solid var(--border);
+  }
+  .participant-entry h4 { font-size: 14px; font-weight: 700; margin-bottom: 10px; }
+  .team-selects { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .select-label { font-size: 11px; color: var(--muted); margin-bottom: 3px; font-weight: 600; }
+
+  .gist-section { background: var(--surface2); border-radius: 10px; padding: 16px; margin-bottom: 16px; }
+  .gist-section h3 { font-size: 14px; font-weight: 700; margin-bottom: 8px; color: var(--accent2); }
+  .gist-section p { font-size: 12px; color: var(--muted); margin-bottom: 8px; }
+  .gist-section a { color: var(--blue); }
+  .code-block {
+    background: var(--bg); border-radius: 6px; padding: 10px; font-family: monospace;
+    font-size: 11px; color: var(--text); border: 1px solid var(--border); word-break: break-all;
+    margin-top: 6px;
+  }
+
+  .loading-spinner {
+    display: flex; align-items: center; justify-content: center;
+    padding: 48px; flex-direction: column; gap: 16px;
+  }
+  .spinner {
+    width: 36px; height: 36px; border: 3px solid var(--border);
+    border-top-color: var(--accent); border-radius: 50%; animation: spin .8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .error-banner {
+    background: rgba(232,93,38,.1); border: 1px solid var(--accent);
+    border-radius: 8px; padding: 12px 16px; font-size: 13px; color: var(--accent);
+    margin-bottom: 16px; display: none;
+  }
+
+  /* MOBILE */
+  @media(max-width: 600px) {
+    .participant-card { grid-template-columns: 40px 1fr; }
+    .score-display { display: none; }
+    .score-display-mobile { display: block !important; }
+    .team-selects { grid-template-columns: 1fr; }
+    .games-grid { grid-template-columns: 1fr; }
+  }
+
+  .score-display-mobile { display: none; font-family: 'Bebas Neue', cursive; font-size: 1.4rem; color: var(--accent); }
+
+  /* CONFIG BUTTON */
+  .config-btn {
+    position: fixed; bottom: 20px; right: 20px; z-index: 200;
+    background: var(--accent); color: #fff; border: none; border-radius: 50%;
+    width: 52px; height: 52px; font-size: 1.3rem; cursor: pointer;
+    box-shadow: 0 4px 16px rgba(232,93,38,.4); transition: transform .2s;
+  }
+  .config-btn:hover { transform: scale(1.1); }
+
+  /* INSTRUCTIONS */
+  .setup-instructions {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    padding: 24px; text-align: center;
+  }
+  .setup-instructions h2 { font-family: 'Bebas Neue', cursive; font-size: 1.6rem; margin-bottom: 12px; }
+  .setup-instructions p { color: var(--muted); font-size: 14px; margin-bottom: 16px; }
+
+  .round-val-table { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin: 16px 0; }
+  .round-val { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 8px 14px; text-align: center; }
+  .round-val .r-name { font-size: 11px; color: var(--muted); }
+  .round-val .r-mult { font-family: 'Bebas Neue', cursive; font-size: 1.4rem; color: var(--accent2); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">MARCH <span>MADNESS</span> 2026</div>
+  <div class="header-right">
+    <div class="live-dot" id="live-dot" style="opacity:0.3"></div>
+    <div class="refresh-info">Updated: <span id="last-updated">--</span></div>
+  </div>
+</header>
+
+<main>
+  <div id="error-banner" class="error-banner"></div>
+
+  <div class="tabs">
+    <div class="tab active" onclick="switchTab('leaderboard')">🏆 Leaderboard</div>
+    <div class="tab" onclick="switchTab('games')">🏀 Live Scores</div>
+    <div class="tab" onclick="switchTab('teams')">📋 All Teams</div>
+    <div class="tab" onclick="switchTab('rules')">📖 Rules</div>
+  </div>
+
+  <div id="panel-leaderboard" class="panel active">
+    <div id="leaderboard-content">
+      <div class="loading-spinner"><div class="spinner"></div><div style="color:var(--muted);font-size:13px">Loading pool data…</div></div>
+    </div>
+  </div>
+
+  <div id="panel-games" class="panel">
+    <div id="games-content">
+      <div class="loading-spinner"><div class="spinner"></div><div style="color:var(--muted);font-size:13px">Loading scores…</div></div>
+    </div>
+  </div>
+
+  <div id="panel-teams" class="panel">
+    <div id="teams-content">
+      <div class="loading-spinner"><div class="spinner"></div></div>
+    </div>
+  </div>
+
+  <div id="panel-rules" class="panel">
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:24px;max-width:600px">
+      <h2 style="font-family:'Bebas Neue',cursive;font-size:1.8rem;margin-bottom:16px">Pool Rules</h2>
+      <p style="color:var(--muted);font-size:14px;margin-bottom:12px">Each of the 12 participants is randomly assigned 5 teams — one from each seed tier:</p>
+      <div style="margin-bottom:16px">
+        <div style="display:flex;flex-wrap:wrap;gap:8px">
+          <span style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:6px 12px;font-size:13px">Seeds <b>1–3</b></span>
+          <span style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:6px 12px;font-size:13px">Seeds <b>4–6</b></span>
+          <span style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:6px 12px;font-size:13px">Seeds <b>7–9</b></span>
+          <span style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:6px 12px;font-size:13px">Seeds <b>10–12</b></span>
+          <span style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:6px 12px;font-size:13px">Seeds <b>13–15</b></span>
+        </div>
+      </div>
+      <p style="font-size:14px;margin-bottom:4px"><b>Scoring Formula:</b> <span style="color:var(--accent2)">Seed × Round Multiplier = Points per win</span></p>
+      <p style="color:var(--muted);font-size:13px;margin-bottom:16px">No 16-seeds assigned. Points accumulate as your teams advance.</p>
+      <div class="round-val-table">
+        <div class="round-val"><div class="r-name">First Round</div><div class="r-mult">×1</div></div>
+        <div class="round-val"><div class="r-name">Second Round</div><div class="r-mult">×2</div></div>
+        <div class="round-val"><div class="r-name">Sweet 16</div><div class="r-mult">×3</div></div>
+        <div class="round-val"><div class="r-name">Elite Eight</div><div class="r-mult">×4</div></div>
+        <div class="round-val"><div class="r-name">Final Four</div><div class="r-mult">×6</div></div>
+        <div class="round-val"><div class="r-name">Championship</div><div class="r-mult">×10</div></div>
+      </div>
+      <p style="font-size:13px;color:var(--muted);margin-top:8px">Example: A <b>seed 11</b> team winning in the <b>Sweet 16</b> = 11 × 3 = <b>33 pts</b></p>
+    </div>
+  </div>
+</main>
+
+<button class="config-btn" onclick="openConfig()" title="Configure Pool">⚙️</button>
+
+<!-- CONFIG MODAL -->
+<div id="config-modal" class="modal-overlay hidden">
+  <div class="modal">
+    <h2>⚙️ Pool Configuration</h2>
+    <p>Configure your Gist URL and participant assignments. All visitors share the same data via your GitHub Gist.</p>
+
+    <div class="gist-section">
+      <h3>Step 1: Create a GitHub Gist</h3>
+      <p>Create a <strong>public</strong> Gist at <a href="https://gist.github.com" target="_blank">gist.github.com</a> with filename <code>pool2026.json</code> and the content <code>{}</code>. Then paste your Gist's <strong>raw URL</strong> below.</p>
+      <p>Raw URL format:</p>
+      <div class="code-block">https://gist.githubusercontent.com/YOUR_USERNAME/GIST_ID/raw/pool2026.json</div>
+    </div>
+
+    <label>Gist Raw URL</label>
+    <input type="url" id="gist-url-input" placeholder="https://gist.githubusercontent.com/..." />
+
+    <div class="gist-section" style="margin-top:16px">
+      <h3>Step 2: Enter Participant Assignments</h3>
+      <p>For each participant, enter their name and assign one team per seed tier. Teams are auto-populated from the 2026 bracket.</p>
+    </div>
+
+    <div id="participant-entries"></div>
+
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="saveConfig()">💾 Save & Publish to Gist</button>
+      <button class="btn btn-ghost" onclick="closeConfig()">Cancel</button>
+    </div>
+    <p id="save-status" style="margin-top:12px;font-size:13px;color:var(--green);display:none"></p>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// 2026 NCAA TOURNAMENT DATA — SEEDS 1-15 (no 16s)
+// Teams listed with ESPN abbreviation for API matching
+// ============================================================
+const TOURNAMENT_TEAMS = {
+  // Verified from official 2026 bracket (Yahoo Sports / CBS Sports / NBC Sports)
+  1: [
+    { name: "Duke", abbrev: "DUKE" },         // East
+    { name: "Arizona", abbrev: "ARIZ" },       // West
+    { name: "Michigan", abbrev: "MICH" },      // Midwest
+    { name: "Florida", abbrev: "FLA" }         // South
+  ],
+  2: [
+    { name: "UConn", abbrev: "CONN" },         // East
+    { name: "Purdue", abbrev: "PUR" },         // West
+    { name: "Iowa State", abbrev: "ISU" },     // Midwest
+    { name: "Houston", abbrev: "HOU" }         // South
+  ],
+  3: [
+    { name: "Michigan State", abbrev: "MSU" }, // East
+    { name: "Gonzaga", abbrev: "GONZ" },       // West
+    { name: "Virginia", abbrev: "UVA" },       // Midwest
+    { name: "Illinois", abbrev: "ILL" }        // South
+  ],
+  4: [
+    { name: "Kansas", abbrev: "KAN" },         // East
+    { name: "Arkansas", abbrev: "ARK" },       // West
+    { name: "Alabama", abbrev: "ALA" },        // Midwest
+    { name: "Nebraska", abbrev: "NEB" }        // South
+  ],
+  5: [
+    { name: "St. John's", abbrev: "STJ" },     // East
+    { name: "Wisconsin", abbrev: "WIS" },      // West
+    { name: "Texas Tech", abbrev: "TTU" },     // Midwest
+    { name: "Vanderbilt", abbrev: "VAN" }      // South
+  ],
+  6: [
+    { name: "Louisville", abbrev: "LOU" },     // East
+    { name: "BYU", abbrev: "BYU" },            // West
+    { name: "Tennessee", abbrev: "TENN" },     // Midwest
+    { name: "North Carolina", abbrev: "UNC" }  // South
+  ],
+  7: [
+    { name: "UCLA", abbrev: "UCLA" },          // East
+    { name: "Miami (FL)", abbrev: "MIA" },     // West
+    { name: "Kentucky", abbrev: "UK" },        // Midwest
+    { name: "Saint Mary's", abbrev: "SMC" }    // South
+  ],
+  8: [
+    { name: "Ohio State", abbrev: "OSU" },     // East
+    { name: "Villanova", abbrev: "WILL" },     // West
+    { name: "Georgia", abbrev: "UGA" },        // Midwest
+    { name: "Clemson", abbrev: "CLEM" }        // South
+  ],
+  9: [
+    { name: "TCU", abbrev: "TCU" },            // East
+    { name: "Utah State", abbrev: "USU" },     // West
+    { name: "Saint Louis", abbrev: "SLU" },    // Midwest
+    { name: "Iowa", abbrev: "IOWA" }           // South
+  ],
+  10: [
+    { name: "UCF", abbrev: "UCF" },            // East
+    { name: "Missouri", abbrev: "MIZ" },       // West
+    { name: "Santa Clara", abbrev: "SCU" },    // Midwest
+    { name: "Texas A&M", abbrev: "TXAM" }      // South
+  ],
+  11: [
+    { name: "South Florida", abbrev: "USF" },  // East
+    { name: "Texas", abbrev: "TEX" },          // West (First Four winner)
+    { name: "SMU", abbrev: "SMU" },            // Midwest (First Four winner)
+    { name: "VCU", abbrev: "VCU" }             // South
+  ],
+  12: [
+    { name: "Northern Iowa", abbrev: "UNI" },  // East
+    { name: "High Point", abbrev: "HPU" },     // West
+    { name: "Akron", abbrev: "AKR" },          // Midwest
+    { name: "McNeese", abbrev: "MCN" }         // South
+  ],
+  13: [
+    { name: "Cal Baptist", abbrev: "CBU" },    // East
+    { name: "Hawaii", abbrev: "HAW" },         // West
+    { name: "Hofstra", abbrev: "HOF" },        // Midwest
+    { name: "Troy", abbrev: "TROY" }           // South
+  ],
+  14: [
+    { name: "North Dakota State", abbrev: "NDSU" }, // East
+    { name: "Kennesaw State", abbrev: "KENN" },     // West
+    { name: "Wright State", abbrev: "WRST" },       // Midwest
+    { name: "Penn", abbrev: "PENN" }                // South
+  ],
+  15: [
+    { name: "Furman", abbrev: "FUR" },         // East
+    { name: "Queens (NC)", abbrev: "QNS" },    // West
+    { name: "Tennessee State", abbrev: "TNST" }, // Midwest
+    { name: "Idaho", abbrev: "IDHO" }          // South
+  ]
+};
+
+// All teams flat list with seed
+const ALL_TEAMS = [];
+for (const [seed, teams] of Object.entries(TOURNAMENT_TEAMS)) {
+  teams.forEach(t => ALL_TEAMS.push({ ...t, seed: parseInt(seed) }));
+}
+
+// Round multipliers
+const ROUND_VALUES = {
+  1: 1,   // First Round (R64)
+  2: 2,   // Second Round (R32)
+  3: 3,   // Sweet 16
+  4: 4,   // Elite Eight
+  5: 6,   // Final Four
+  6: 10   // Championship
+};
+const ROUND_NAMES = {
+  1: "First Round",
+  2: "Second Round",
+  3: "Sweet 16",
+  4: "Elite Eight",
+  5: "Final Four",
+  6: "Championship"
+};
+
+// ============================================================
+// STATE
+// ============================================================
+let poolData = null;       // loaded from Gist
+let gamesData = [];        // from ESPN
+let gistUrl = '';
+let refreshTimer = null;
+
+// ============================================================
+// ESPN API — fetch tournament games via CORS proxy
+// ============================================================
+const CORS_PROXIES = [
+  url => `https://corsproxy.io/?${encodeURIComponent(url)}`,
+  url => `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`
+];
+
+async function fetchWithProxy(url) {
+  for (const proxyFn of CORS_PROXIES) {
+    try {
+      const proxyUrl = proxyFn(url);
+      const res = await fetch(proxyUrl, { signal: AbortSignal.timeout(8000) });
+      if (!res.ok) continue;
+      const text = await res.text();
+      // allorigins wraps in {contents:"..."}
+      try {
+        const outer = JSON.parse(text);
+        if (outer.contents) return JSON.parse(outer.contents);
+        return outer;
+      } catch {
+        return JSON.parse(text);
+      }
+    } catch { continue; }
+  }
+  throw new Error("All proxies failed");
+}
+
+async function fetchESPNGames() {
+  // Fetch NCAA tournament games across the full date range
+  const dates = [
+    '20260317', '20260318', '20260319', '20260320',
+    '20260321', '20260322', '20260324', '20260325',
+    '20260326', '20260327', '20260328', '20260329',
+    '20260331', '20260401', '20260402', '20260403',
+    '20260404', '20260406'
+  ];
+
+  const allGames = [];
+  // Fetch games for a range around today
+  const today = new Date();
+  const todayStr = today.toISOString().slice(0,10).replace(/-/g,'');
+
+  // Always fetch today + check yesterday for finals
+  const fetchDates = [todayStr];
+  const yesterday = new Date(today); yesterday.setDate(today.getDate()-1);
+  fetchDates.unshift(yesterday.toISOString().slice(0,10).replace(/-/g,''));
+
+  let fetched = false;
+  for (const dateStr of fetchDates) {
+    try {
+      const url = `https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/scoreboard?groups=100&limit=50&dates=${dateStr}`;
+      const data = await fetchWithProxy(url);
+      const events = data?.events || [];
+      events.forEach(ev => {
+        const game = parseESPNGame(ev);
+        if (game) allGames.push(game);
+      });
+      fetched = true;
+    } catch (e) { console.warn('ESPN fetch failed for', dateStr, e); }
+  }
+
+  // Also fetch any completed tournament games using a broader range
+  // so we accumulate scores across rounds
+  try {
+    const rangeUrl = `https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/scoreboard?groups=100&limit=100&dates=20260317-20260406`;
+    const data = await fetchWithProxy(rangeUrl);
+    const events = data?.events || [];
+    events.forEach(ev => {
+      const game = parseESPNGame(ev);
+      if (game && !allGames.find(g => g.id === game.id)) {
+        allGames.push(game);
+      }
+    });
+  } catch(e) { console.warn('range fetch failed', e); }
+
+  return allGames;
+}
+
+function parseESPNGame(ev) {
+  try {
+    const comp = ev.competitions?.[0];
+    if (!comp) return null;
+
+    // Only NCAA tournament games
+    const notes = ev.notes?.[0]?.headline || '';
+    const tourneyNote = ['Championship', 'Final Four', 'Elite Eight', 'Sweet 16',
+                         'First Round', 'Second Round', 'First Four'].some(r => notes.includes(r));
+    if (!tourneyNote && !ev.tournament) {
+      // Try checking season type
+      const seasonType = ev.season?.type;
+      if (seasonType !== 3) return null;
+    }
+
+    const teams = comp.competitors?.map(c => ({
+      name: c.team?.displayName || c.team?.name || '',
+      abbrev: c.team?.abbreviation || '',
+      score: parseInt(c.score) || 0,
+      seed: parseInt(c.curatedRank?.current || c.seed || 0),
+      winner: c.winner || false,
+      homeAway: c.homeAway
+    })) || [];
+
+    const status = comp.status?.type;
+    let roundNum = 0;
+    if (notes.includes('First Four')) roundNum = 0;
+    else if (notes.includes('First Round')) roundNum = 1;
+    else if (notes.includes('Second Round')) roundNum = 2;
+    else if (notes.includes('Sweet 16')) roundNum = 3;
+    else if (notes.includes('Elite Eight')) roundNum = 4;
+    else if (notes.includes('Final Four')) roundNum = 5;
+    else if (notes.includes('Championship')) roundNum = 6;
+
+    return {
+      id: ev.id,
+      round: roundNum,
+      roundName: ROUND_NAMES[roundNum] || notes,
+      date: ev.date,
+      status: status?.state || 'pre',  // pre, in, post
+      statusDetail: status?.shortDetail || '',
+      displayClock: comp.status?.displayClock || '',
+      period: comp.status?.period || 0,
+      teams,
+      headline: notes
+    };
+  } catch { return null; }
+}
+
+// Determine winner name from completed games
+function getWinners() {
+  const winners = {}; // teamName -> highest round won
+  for (const game of gamesData) {
+    if (game.status === 'post' && game.round >= 1) {
+      const winner = game.teams.find(t => t.winner);
+      if (winner) {
+        const current = winners[winner.name] || 0;
+        if (game.round > current) {
+          winners[winner.name] = game.round;
+        }
+      }
+    }
+  }
+  return winners;
+}
+
+// ============================================================
+// SCORING
+// ============================================================
+function computeScore(participant, winnersMap) {
+  let total = 0;
+  const breakdown = [];
+  for (const team of participant.teams) {
+    const teamObj = ALL_TEAMS.find(t =>
+      t.name.toLowerCase() === team.name.toLowerCase() ||
+      t.abbrev.toLowerCase() === (team.abbrev || '').toLowerCase()
+    );
+    const seed = teamObj?.seed || team.seed || 0;
+    const highestRound = winnersMap[team.name] || 0;
+    for (let r = 1; r <= highestRound; r++) {
+      const pts = seed * (ROUND_VALUES[r] || 0);
+      total += pts;
+      breakdown.push({ round: r, pts, team: team.name });
+    }
+  }
+  return { total, breakdown };
+}
+
+// ============================================================
+// RENDER LEADERBOARD
+// ============================================================
+function renderLeaderboard() {
+  const container = document.getElementById('leaderboard-content');
+  if (!poolData || !poolData.participants || poolData.participants.length === 0) {
+    container.innerHTML = `
+      <div class="setup-instructions">
+        <h2>🏀 Pool Not Configured Yet</h2>
+        <p>Click the ⚙️ button in the bottom right to configure participant assignments and your Gist URL.</p>
+        <p style="font-size:12px;color:var(--muted)">Once configured, this page will automatically update every minute with live scores.</p>
+      </div>`;
+    return;
+  }
+
+  const winners = getWinners();
+  const scored = poolData.participants.map(p => ({
+    ...p,
+    ...computeScore(p, winners)
+  })).sort((a, b) => b.total - a.total);
+
+  let html = '<div class="leaderboard-grid">';
+  scored.forEach((p, i) => {
+    const rank = i + 1;
+    const rankClass = rank <= 3 ? `rank-${rank}` : '';
+    const badgeClass = rank <= 3 ? `r${rank}` : '';
+
+    const teamPills = p.teams.map(t => {
+      const teamObj = ALL_TEAMS.find(tm => tm.name.toLowerCase() === t.name.toLowerCase());
+      const seed = teamObj?.seed || t.seed || '?';
+      const eliminated = !winners[t.name] && gamesData.some(g =>
+        g.status === 'post' && g.round >= 1 &&
+        g.teams.some(gt => gt.name === t.name && !gt.winner)
+      );
+      const alive = winners[t.name] !== undefined || !eliminated;
+      const cls = eliminated ? 'eliminated' : 'alive';
+      return `<span class="team-pill ${cls}"><span class="seed-num">#${seed}</span>${t.name}</span>`;
+    }).join('');
+
+    const winCount = p.breakdown?.filter((b,i,arr) => arr.findIndex(x=>x.team===b.team&&x.round===b.round)===i).length || 0;
+
+    html += `
+    <div class="participant-card ${rankClass}">
+      <div class="rank-badge ${badgeClass}">${rank}</div>
+      <div class="participant-info">
+        <h3>${p.name}</h3>
+        <div class="participant-teams">${teamPills}</div>
+        <div class="score-display-mobile">${p.total} pts</div>
+      </div>
+      <div class="score-display">
+        <div class="score-total">${p.total}</div>
+        <div class="score-breakdown">${winCount} win${winCount!==1?'s':''} · ${p.breakdown?.length||0} pts earned</div>
+      </div>
+    </div>`;
+  });
+  html += '</div>';
+  container.innerHTML = html;
+}
+
+// ============================================================
+// RENDER GAMES
+// ============================================================
+function renderGames() {
+  const container = document.getElementById('games-content');
+  const poolTeams = (poolData?.participants || []).flatMap(p => p.teams.map(t => t.name.toLowerCase()));
+
+  const byRound = {};
+  gamesData.filter(g => g.round >= 1).forEach(g => {
+    if (!byRound[g.round]) byRound[g.round] = [];
+    byRound[g.round].push(g);
+  });
+
+  if (Object.keys(byRound).length === 0) {
+    container.innerHTML = `<div style="color:var(--muted);font-size:14px;padding:32px;text-align:center">No tournament games loaded yet. Live games will appear here during the tournament.</div>`;
+    return;
+  }
+
+  let html = '';
+  const rounds = Object.keys(byRound).sort((a,b) => b-a);
+  for (const r of rounds) {
+    const games = byRound[r];
+    html += `<div class="round-section"><div class="round-label">${ROUND_NAMES[r] || 'Round '+r}</div><div class="games-grid">`;
+    for (const g of games) {
+      const isLive = g.status === 'in';
+      const isFinal = g.status === 'post';
+      const statusCls = isLive ? 'live' : isFinal ? 'final' : 'scheduled';
+      const statusText = isLive ? `🔴 LIVE · ${g.displayClock} / ${g.period}H` : isFinal ? 'Final' : g.statusDetail || 'Scheduled';
+
+      const [t1, t2] = g.teams;
+      if (!t1 || !t2) continue;
+
+      const t1InPool = poolTeams.includes(t1.name.toLowerCase());
+      const t2InPool = poolTeams.includes(t2.name.toLowerCase());
+      const t1Winning = t1.score > t2.score;
+      const t2Winning = t2.score > t1.score;
+
+      html += `<div class="game-card ${isLive?'live':isFinal?'final':''}">
+        <div class="game-status ${statusCls}">${statusText}</div>
+        <div class="game-team">
+          <div class="team-name-row">
+            ${t1InPool ? '<div class="in-pool-indicator" title="In your pool"></div>' : ''}
+            <div class="seed-badge">${t1.seed||'?'}</div>
+            <span style="font-weight:${t1.winner?700:400}">${t1.name}</span>
+          </div>
+          <div class="team-score ${(isLive||isFinal)&&t1Winning?'winning':''}">${isFinal||isLive?t1.score:''}</div>
+        </div>
+        <div class="game-team">
+          <div class="team-name-row">
+            ${t2InPool ? '<div class="in-pool-indicator" title="In your pool"></div>' : ''}
+            <div class="seed-badge">${t2.seed||'?'}</div>
+            <span style="font-weight:${t2.winner?700:400}">${t2.name}</span>
+          </div>
+          <div class="team-score ${(isLive||isFinal)&&t2Winning?'winning':''}">${isFinal||isLive?t2.score:''}</div>
+        </div>
+      </div>`;
+    }
+    html += '</div></div>';
+  }
+  container.innerHTML = html;
+}
+
+// ============================================================
+// RENDER TEAMS TABLE
+// ============================================================
+function renderTeams() {
+  const container = document.getElementById('teams-content');
+  const winners = getWinners();
+  const poolTeams = (poolData?.participants || []).flatMap(p =>
+    p.teams.map(t => ({ ...t, owner: p.name }))
+  );
+
+  let html = `<div style="overflow-x:auto"><table class="teams-table">
+    <thead><tr>
+      <th>Team</th><th>Seed</th><th>Owner</th><th>Status</th><th>Highest Round</th><th>Pts Earned</th>
+    </tr></thead><tbody>`;
+
+  const teamsToShow = poolTeams.length > 0
+    ? poolTeams.map(t => {
+        const obj = ALL_TEAMS.find(x => x.name.toLowerCase() === t.name.toLowerCase());
+        return { ...obj, ...t };
+      })
+    : ALL_TEAMS;
+
+  teamsToShow.sort((a,b) => (a.seed||99) - (b.seed||99)).forEach(t => {
+    const seed = t.seed || '?';
+    const highRound = winners[t.name] || 0;
+    let pts = 0;
+    for (let r = 1; r <= highRound; r++) pts += (seed * (ROUND_VALUES[r] || 0));
+
+    const eliminated = !highRound && gamesData.some(g =>
+      g.status === 'post' && g.round >= 1 &&
+      g.teams.some(gt => gt.name === t.name && !gt.winner)
+    );
+
+    const status = highRound ? `<span class="status-alive">✅ Alive (${ROUND_NAMES[highRound]}+)</span>` :
+                   eliminated ? `<span class="status-elim">❌ Eliminated</span>` :
+                   `<span style="color:var(--blue)">⏳ Tournament</span>`;
+
+    html += `<tr>
+      <td><b>${t.name}</b></td>
+      <td><span style="background:var(--surface2);padding:2px 7px;border-radius:4px;font-size:12px">#${seed}</span></td>
+      <td>${t.owner || '—'}</td>
+      <td>${status}</td>
+      <td>${highRound ? ROUND_NAMES[highRound] : '—'}</td>
+      <td style="font-weight:700;color:var(--accent2)">${pts || '—'}</td>
+    </tr>`;
+  });
+
+  html += '</tbody></table></div>';
+  container.innerHTML = html;
+}
+
+// ============================================================
+// GIST STORAGE
+// ============================================================
+async function loadFromGist() {
+  gistUrl = localStorage.getItem('gistUrl') || '';
+  if (!gistUrl) return;
+
+  try {
+    // Add cache-buster
+    const url = gistUrl + '?t=' + Date.now();
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('Gist fetch failed');
+    const data = await res.json();
+    poolData = data;
+  } catch (e) {
+    showError('Could not load Gist data: ' + e.message + '. Check your Gist URL in settings.');
+  }
+}
+
+async function saveToGist(data) {
+  // Instructions for saving: user must update the Gist manually OR use GitHub API
+  // We'll save to localStorage for the admin and show instructions
+  localStorage.setItem('poolData', JSON.stringify(data));
+  localStorage.setItem('gistUrl', document.getElementById('gist-url-input').value.trim());
+
+  // Try to save to Gist via GitHub API
+  const rawUrl = document.getElementById('gist-url-input').value.trim();
+  const match = rawUrl.match(/gist\.githubusercontent\.com\/[^/]+\/([a-f0-9]+)\//);
+  if (match) {
+    const gistId = match[1];
+    const pat = localStorage.getItem('github_pat');
+    if (pat) {
+      try {
+        const res = await fetch(`https://api.github.com/gists/${gistId}`, {
+          method: 'PATCH',
+          headers: {
+            'Authorization': `token ${pat}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            files: { 'pool2026.json': { content: JSON.stringify(data, null, 2) } }
+          })
+        });
+        if (res.ok) return { success: true, method: 'gist' };
+      } catch {}
+    }
+  }
+  return { success: true, method: 'local' };
+}
+
+// ============================================================
+// CONFIG MODAL
+// ============================================================
+function openConfig() {
+  buildParticipantForm();
+  const savedUrl = localStorage.getItem('gistUrl') || '';
+  document.getElementById('gist-url-input').value = savedUrl;
+  document.getElementById('config-modal').classList.remove('hidden');
+}
+
+function closeConfig() {
+  document.getElementById('config-modal').classList.add('hidden');
+}
+
+function buildParticipantForm() {
+  const container = document.getElementById('participant-entries');
+  const existing = poolData?.participants || [];
+
+  // Build team options by seed tier
+  const tierOptions = {
+    '1-3': [1,2,3],
+    '4-6': [4,5,6],
+    '7-9': [7,8,9],
+    '10-12': [10,11,12],
+    '13-15': [13,14,15]
+  };
+
+  function buildOptions(seeds, selectedName) {
+    let opts = '<option value="">— select —</option>';
+    for (const seed of seeds) {
+      const teams = TOURNAMENT_TEAMS[seed] || [];
+      for (const t of teams) {
+        const sel = t.name === selectedName ? 'selected' : '';
+        opts += `<option value="${t.name}" ${sel}>#${seed} ${t.name}</option>`;
+      }
+    }
+    return opts;
+  }
+
+  let html = '';
+  for (let i = 0; i < 12; i++) {
+    const p = existing[i] || { name: `Player ${i+1}`, teams: [] };
+    const getTeam = (seeds) => p.teams?.find(t => {
+      const obj = ALL_TEAMS.find(x => x.name === t.name);
+      return obj && seeds.includes(obj.seed);
+    })?.name || '';
+
+    html += `<div class="participant-entry">
+      <h4>Participant ${i+1}</h4>
+      <label>Name</label>
+      <input type="text" id="p${i}-name" value="${p.name}" placeholder="Player name" />
+      <div class="team-selects">
+        <div>
+          <div class="select-label">Seed 1–3</div>
+          <select id="p${i}-t1">${buildOptions([1,2,3], getTeam([1,2,3]))}</select>
+        </div>
+        <div>
+          <div class="select-label">Seed 4–6</div>
+          <select id="p${i}-t2">${buildOptions([4,5,6], getTeam([4,5,6]))}</select>
+        </div>
+        <div>
+          <div class="select-label">Seed 7–9</div>
+          <select id="p${i}-t3">${buildOptions([7,8,9], getTeam([7,8,9]))}</select>
+        </div>
+        <div>
+          <div class="select-label">Seed 10–12</div>
+          <select id="p${i}-t4">${buildOptions([10,11,12], getTeam([10,11,12]))}</select>
+        </div>
+        <div>
+          <div class="select-label">Seed 13–15</div>
+          <select id="p${i}-t5">${buildOptions([13,14,15], getTeam([13,14,15]))}</select>
+        </div>
+      </div>
+    </div>`;
+  }
+
+  // Add GitHub PAT section
+  const savedPat = localStorage.getItem('github_pat') || '';
+  html += `<div class="gist-section">
+    <h3>Optional: GitHub Token for Auto-Save</h3>
+    <p>To auto-save to your Gist when you hit Save, paste a GitHub Personal Access Token with <code>gist</code> scope. This is stored only in your browser.</p>
+    <label>GitHub PAT (optional)</label>
+    <input type="password" id="github-pat-input" value="${savedPat}" placeholder="ghp_..." />
+  </div>`;
+
+  container.innerHTML = html;
+}
+
+async function saveConfig() {
+  const participants = [];
+  for (let i = 0; i < 12; i++) {
+    const name = document.getElementById(`p${i}-name`)?.value?.trim();
+    if (!name) continue;
+    const teamNames = [
+      document.getElementById(`p${i}-t1`)?.value,
+      document.getElementById(`p${i}-t2`)?.value,
+      document.getElementById(`p${i}-t3`)?.value,
+      document.getElementById(`p${i}-t4`)?.value,
+      document.getElementById(`p${i}-t5`)?.value
+    ].filter(Boolean);
+
+    const teams = teamNames.map(n => {
+      const obj = ALL_TEAMS.find(t => t.name === n);
+      return { name: n, seed: obj?.seed || 0, abbrev: obj?.abbrev || '' };
+    });
+    participants.push({ name, teams });
+  }
+
+  const pat = document.getElementById('github-pat-input')?.value?.trim();
+  if (pat) localStorage.setItem('github_pat', pat);
+
+  const newData = { participants, updatedAt: new Date().toISOString() };
+  const result = await saveToGist(newData);
+
+  poolData = newData;
+  gistUrl = document.getElementById('gist-url-input').value.trim();
+  localStorage.setItem('gistUrl', gistUrl);
+
+  const statusEl = document.getElementById('save-status');
+  if (result.method === 'gist') {
+    statusEl.textContent = '✅ Saved to Gist! Your friends will see these assignments automatically.';
+  } else {
+    statusEl.textContent = '✅ Saved locally. To share: update your Gist manually with the JSON below, or add a GitHub PAT.';
+    // Show JSON to copy
+    const jsonBox = document.createElement('div');
+    jsonBox.className = 'code-block';
+    jsonBox.style.marginTop = '8px';
+    jsonBox.style.maxHeight = '120px';
+    jsonBox.style.overflow = 'auto';
+    jsonBox.textContent = JSON.stringify(newData, null, 2);
+    statusEl.after(jsonBox);
+  }
+  statusEl.style.display = 'block';
+
+  renderAll();
+}
+
+// ============================================================
+// MAIN REFRESH LOOP
+// ============================================================
+async function refresh() {
+  document.getElementById('live-dot').style.opacity = '1';
+  try {
+    await loadFromGist();
+    gamesData = await fetchESPNGames();
+    renderAll();
+    document.getElementById('last-updated').textContent = new Date().toLocaleTimeString();
+  } catch (e) {
+    console.error('Refresh error:', e);
+  }
+  document.getElementById('live-dot').style.opacity = '0.3';
+}
+
+function renderAll() {
+  renderLeaderboard();
+  if (document.getElementById('panel-games').classList.contains('active')) renderGames();
+  if (document.getElementById('panel-teams').classList.contains('active')) renderTeams();
+}
+
+// Load saved pool data from localStorage as fallback
+function loadLocalFallback() {
+  const local = localStorage.getItem('poolData');
+  if (local) {
+    try { poolData = JSON.parse(local); } catch {}
+  }
+  gistUrl = localStorage.getItem('gistUrl') || '';
+}
+
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach((t,i) => {
+    const names = ['leaderboard','games','teams','rules'];
+    t.classList.toggle('active', names[i] === name);
+  });
+  document.querySelectorAll('.panel').forEach(p => {
+    p.classList.toggle('active', p.id === `panel-${name}`);
+  });
+  if (name === 'games') renderGames();
+  if (name === 'teams') renderTeams();
+}
+
+function showError(msg) {
+  const el = document.getElementById('error-banner');
+  el.textContent = msg;
+  el.style.display = 'block';
+  setTimeout(() => el.style.display = 'none', 8000);
+}
+
+// ============================================================
+// INIT
+// ============================================================
+loadLocalFallback();
+renderLeaderboard(); // show immediately with local data
+
+refresh(); // first load
+refreshTimer = setInterval(refresh, 60000); // every 60 seconds
+</script>
+</body>
+</html>
