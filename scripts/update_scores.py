@@ -35,6 +35,80 @@ NOTE_TO_ROUND = {
     "Sweet 16": 3, "Elite Eight": 4, "Final Four": 5, "Championship": 6
 }
 
+# ── ESPN full names → pool short names ───────────────────────────────────────
+NAME_MAP = {
+    "Duke Blue Devils": "Duke",
+    "Arizona Wildcats": "Arizona",
+    "Michigan Wolverines": "Michigan",
+    "Florida Gators": "Florida",
+    "UConn Huskies": "UConn",
+    "Purdue Boilermakers": "Purdue",
+    "Iowa State Cyclones": "Iowa State",
+    "Houston Cougars": "Houston",
+    "Michigan State Spartans": "Michigan State",
+    "Gonzaga Bulldogs": "Gonzaga",
+    "Virginia Cavaliers": "Virginia",
+    "Illinois Fighting Illini": "Illinois",
+    "Kansas Jayhawks": "Kansas",
+    "Arkansas Razorbacks": "Arkansas",
+    "Alabama Crimson Tide": "Alabama",
+    "Nebraska Cornhuskers": "Nebraska",
+    "St. John's Red Storm": "St. John's",
+    "Wisconsin Badgers": "Wisconsin",
+    "Texas Tech Red Raiders": "Texas Tech",
+    "Vanderbilt Commodores": "Vanderbilt",
+    "Louisville Cardinals": "Louisville",
+    "BYU Cougars": "BYU",
+    "Tennessee Volunteers": "Tennessee",
+    "North Carolina Tar Heels": "North Carolina",
+    "UCLA Bruins": "UCLA",
+    "Miami Hurricanes": "Miami (FL)",
+    "Kentucky Wildcats": "Kentucky",
+    "Saint Mary's Gaels": "Saint Mary's",
+    "Ohio State Buckeyes": "Ohio State",
+    "Villanova Wildcats": "Villanova",
+    "Georgia Bulldogs": "Georgia",
+    "Clemson Tigers": "Clemson",
+    "TCU Horned Frogs": "TCU",
+    "Utah State Aggies": "Utah State",
+    "Saint Louis Billikens": "Saint Louis",
+    "Iowa Hawkeyes": "Iowa",
+    "UCF Knights": "UCF",
+    "Missouri Tigers": "Missouri",
+    "Santa Clara Broncos": "Santa Clara",
+    "Texas A&M Aggies": "Texas A&M",
+    "South Florida Bulls": "South Florida",
+    "Texas Longhorns": "Texas",
+    "SMU Mustangs": "SMU",
+    "VCU Rams": "VCU",
+    "Northern Iowa Panthers": "Northern Iowa",
+    "High Point Panthers": "High Point",
+    "Akron Zips": "Akron",
+    "McNeese Cowboys": "McNeese",
+    "California Baptist Lancers": "Cal Baptist",
+    "Cal Baptist Lancers": "Cal Baptist",
+    "Hawaii Rainbow Warriors": "Hawaii",
+    "Hawai'i Rainbow Warriors": "Hawaii",
+    "Hofstra Pride": "Hofstra",
+    "Troy Trojans": "Troy",
+    "North Dakota State Bison": "North Dakota State",
+    "Kennesaw State Owls": "Kennesaw State",
+    "Wright State Raiders": "Wright State",
+    "Penn Quakers": "Penn",
+    "Furman Paladins": "Furman",
+    "Queens Royals": "Queens (NC)",
+    "Tennessee State Tigers": "Tennessee State",
+    "Idaho Vandals": "Idaho",
+    "NC State Wolfpack": "NC State",
+    "Miami (OH) RedHawks": "Miami (OH)",
+    "Howard Bison": "Howard",
+    "UMBC Retrievers": "UMBC",
+    "LIU Sharks": "LIU",
+    "Siena Saints": "Siena",
+    "Prairie View A&M Panthers": "Prairie View A&M",
+    "Lehigh Mountain Hawks": "Lehigh",
+}
+
 # ── Fetch ESPN scoreboard for a date string (YYYYMMDD) ───────────────────────
 def fetch_espn_date(date_str):
     url = f"{ESPN_BASE}/scoreboard"
@@ -78,7 +152,8 @@ def parse_event(ev):
 
         teams = []
         for c in comp.get("competitors", []):
-            team_name = c.get("team", {}).get("displayName") or c.get("team", {}).get("name", "")
+            raw_name  = c.get("team", {}).get("displayName") or c.get("team", {}).get("name", "")
+            team_name = NAME_MAP.get(raw_name, raw_name)  # normalize to pool name
             seed = int(c.get("curatedRank", {}).get("current") or c.get("seed") or 0)
             score = int(c.get("score") or 0)
             winner = bool(c.get("winner", False))
