@@ -1066,11 +1066,9 @@ async function saveConfig() {
 async function refresh() {
   document.getElementById('live-dot').style.opacity = '1';
   try {
-    // Load Gist first and render immediately so leaderboard appears fast
     await loadFromGist();
-    renderLeaderboard();
-    if (document.getElementById('panel-teams').classList.contains('active')) renderTeams();
-
+    // Populate gamesData from Gist so getWinners() and scoring work
+    gamesData = Array.isArray(poolData?.games) ? poolData.games : [];
     renderAll();
     document.getElementById('last-updated').textContent = new Date().toLocaleTimeString();
   } catch (e) {
