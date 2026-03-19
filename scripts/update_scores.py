@@ -1,7 +1,7 @@
 """
 update_scores.py
-Fetches 2026 NCAA Men's Tournament scores from ESPN and updates the Gist.
-Runs via GitHub Actions every 5 minutes during tournament hours.
+Fetches 2026 NCAA Men's Tournament scores from ESPN (groups=50) and updates the Gist.
+Filters to tournament games by checking if both teams are known tournament teams.
 """
 
 import json
@@ -9,29 +9,30 @@ import os
 import requests
 from datetime import datetime, timedelta, timezone
 
-# ── Config ────────────────────────────────────────────────────────────────────
 GIST_ID    = os.environ["GIST_ID"]
 GIST_TOKEN = os.environ["GIST_TOKEN"]
 GIST_FILE  = "pool2026.json"
-
 ESPN_BASE  = "https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball"
 
-# ── Round mapping ─────────────────────────────────────────────────────────────
-NOTE_TO_ROUND = {
-    "First Four":    0,
-    "First Round":   1,
-    "Second Round":  2,
-    "Sweet 16":      3,
-    "Elite Eight":   4,
-    "Final Four":    5,
-    "Championship":  6,
-}
 ROUND_NAMES = {
-    0: "First Four",   1: "First Round",  2: "Second Round",
-    3: "Sweet 16",     4: "Elite Eight",  5: "Final Four",   6: "Championship"
+    0: "First Four",  1: "First Round", 2: "Second Round",
+    3: "Sweet 16",    4: "Elite Eight", 5: "Final Four",  6: "Championship"
+}
+NOTE_TO_ROUND = {
+    "First Four": 0, "First Round": 1, "Second Round": 2,
+    "Sweet 16": 3, "Elite Eight": 4, "Final Four": 5, "Championship": 6
+}
+ROUND_BY_DATE = {
+    "2026-03-17": 0, "2026-03-18": 0,
+    "2026-03-19": 1, "2026-03-20": 1,
+    "2026-03-21": 2, "2026-03-22": 2,
+    "2026-03-26": 3, "2026-03-27": 3,
+    "2026-03-28": 4, "2026-03-29": 4,
+    "2026-04-04": 5,
+    "2026-04-06": 6,
 }
 
-# ── Hardcoded seeds — ESPN seed field is unreliable ───────────────────────────
+# Hardcoded seeds — source of truth
 SEED_MAP = {
     "Duke": 1, "Arizona": 1, "Michigan": 1, "Florida": 1,
     "UConn": 2, "Purdue": 2, "Iowa State": 2, "Houston": 2,
@@ -53,7 +54,6 @@ SEED_MAP = {
     "Prairie View A&M": 16, "Lehigh": 16,
 }
 
-# ── ESPN full display names → short pool names ────────────────────────────────
 NAME_MAP = {
     "Duke Blue Devils": "Duke", "Arizona Wildcats": "Arizona",
     "Michigan Wolverines": "Michigan", "Florida Gators": "Florida",
@@ -97,15 +97,18 @@ NAME_MAP = {
 POOL_TEAMS = set(SEED_MAP.keys())
 
 
-def normalize(espn_name):
-    return NAME_MAP.get(espn_name, espn_name)
+def normalize(name):
+    return NAME_MAP.get(name, name)
 
 
 def fetch_espn(date_str):
-    url = f"{ESPN_BASE}/scoreboard"
-    params = {"groups": "100", "limit": "100", "dates": date_str}
+    """Fetch all college basketball games for a date using groups=50."""
     try:
-        r = requests.get(url, params=params, timeout=10)
+        r = requests.get(
+            f"{ESPN_BASE}/scoreboard",
+            params={"groups": "50", "limit": "200", "dates": date_str},
+            timeout=10
+        )
         r.raise_for_status()
         return r.json().get("events", [])
     except Exception as e:
@@ -117,7 +120,7 @@ def parse_event(ev):
     try:
         comp = ev["competitions"][0]
 
-        # Must be identified as a tournament game by its headline note
+        # Get round from note headline first
         note = ""
         for n in ev.get("notes", []):
             note = n.get("headline", "")
@@ -130,15 +133,15 @@ def parse_event(ev):
                 round_num = val
                 break
 
+        # Fall back to date-based round detection
         if round_num < 0:
-            return None  # Not a tournament game — skip
+            date_str = ev.get("date", "")[:10]
+            round_num = ROUND_BY_DATE.get(date_str, -1)
 
-        status_type = comp.get("status", {}).get("type", {})
-        state  = status_type.get("state", "pre")
-        clock  = comp.get("status", {}).get("displayClock", "")
-        period = comp.get("status", {}).get("period", 0)
-        detail = status_type.get("shortDetail", "")
+        if round_num < 0:
+            return None
 
+        # Parse teams
         teams = []
         for c in comp.get("competitors", []):
             raw  = c.get("team", {}).get("displayName") or c.get("team", {}).get("name", "")
@@ -151,6 +154,16 @@ def parse_event(ev):
         if len(teams) < 2:
             return None
 
+        # Filter: at least one team must be a known tournament team
+        if not any(t["name"] in POOL_TEAMS for t in teams):
+            return None
+
+        status_type = comp.get("status", {}).get("type", {})
+        state  = status_type.get("state", "pre")
+        clock  = comp.get("status", {}).get("displayClock", "")
+        period = comp.get("status", {}).get("period", 0)
+        detail = status_type.get("shortDetail", "")
+
         return {
             "id":           ev["id"],
             "round":        round_num,
@@ -161,7 +174,6 @@ def parse_event(ev):
             "period":       period,
             "teams":        teams,
         }
-
     except Exception as e:
         print(f"  parse_event error: {e}")
         return None
@@ -171,16 +183,19 @@ def fetch_all_games():
     now   = datetime.now(timezone.utc)
     games = {}
 
-    for offset in range(-3, 2):
+    for offset in range(-4, 2):
         d = (now + timedelta(days=offset)).strftime("%Y%m%d")
         print(f"  Fetching {d}...")
         events = fetch_espn(d)
-        print(f"    {len(events)} events returned")
+        count = 0
         for ev in events:
             g = parse_event(ev)
             if g and g["id"] not in games:
                 games[g["id"]] = g
+                count += 1
                 print(f"    + {g['roundName']}: {g['teams'][0]['name']} vs {g['teams'][1]['name']} [{g['status']}]")
+        if count == 0:
+            print(f"    (no tournament games on this date)")
 
     print(f"  Total: {len(games)} tournament games")
     return list(games.values())
@@ -218,7 +233,7 @@ def main():
         print(f"Failed to load Gist: {e}")
         return
 
-    print("Fetching scores...")
+    print("Fetching scores from ESPN...")
     games = fetch_all_games()
 
     if not games:
