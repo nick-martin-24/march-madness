@@ -542,17 +542,67 @@ let refreshTimer = null;
 
 // ============================================================
 // ============================================================
-// Determine winner name from completed games
+// ESPN/SportRadar use 'closed', our format uses 'post' — handle both
+function isFinished(status) {
+  return status === 'post' || status === 'closed' || status === 'complete';
+}
+
+// Normalize team name for matching — strips suffixes like "Blue Devils", "Wildcats" etc.
+// Falls back to exact match if no mapping found
+const ESPN_NAME_MAP = {
+  "duke blue devils": "Duke", "arizona wildcats": "Arizona",
+  "michigan wolverines": "Michigan", "florida gators": "Florida",
+  "uconn huskies": "UConn", "purdue boilermakers": "Purdue",
+  "iowa state cyclones": "Iowa State", "houston cougars": "Houston",
+  "michigan state spartans": "Michigan State", "gonzaga bulldogs": "Gonzaga",
+  "virginia cavaliers": "Virginia", "illinois fighting illini": "Illinois",
+  "kansas jayhawks": "Kansas", "arkansas razorbacks": "Arkansas",
+  "alabama crimson tide": "Alabama", "nebraska cornhuskers": "Nebraska",
+  "st. john's red storm": "St. John's", "wisconsin badgers": "Wisconsin",
+  "texas tech red raiders": "Texas Tech", "vanderbilt commodores": "Vanderbilt",
+  "louisville cardinals": "Louisville", "byu cougars": "BYU",
+  "tennessee volunteers": "Tennessee", "north carolina tar heels": "North Carolina",
+  "ucla bruins": "UCLA", "miami hurricanes": "Miami (FL)",
+  "miami (fl) hurricanes": "Miami (FL)", "kentucky wildcats": "Kentucky",
+  "saint mary's gaels": "Saint Mary's", "ohio state buckeyes": "Ohio State",
+  "villanova wildcats": "Villanova", "georgia bulldogs": "Georgia",
+  "clemson tigers": "Clemson", "tcu horned frogs": "TCU",
+  "utah state aggies": "Utah State", "saint louis billikens": "Saint Louis",
+  "iowa hawkeyes": "Iowa", "ucf knights": "UCF", "missouri tigers": "Missouri",
+  "santa clara broncos": "Santa Clara", "texas a&m aggies": "Texas A&M",
+  "south florida bulls": "South Florida", "texas longhorns": "Texas",
+  "smu mustangs": "SMU", "vcu rams": "VCU",
+  "northern iowa panthers": "Northern Iowa", "high point panthers": "High Point",
+  "akron zips": "Akron", "mcneese cowboys": "McNeese",
+  "california baptist lancers": "Cal Baptist", "cal baptist lancers": "Cal Baptist",
+  "hawaii rainbow warriors": "Hawaii", "hawai'i rainbow warriors": "Hawaii",
+  "hofstra pride": "Hofstra", "troy trojans": "Troy",
+  "north dakota state bison": "North Dakota State",
+  "kennesaw state owls": "Kennesaw State", "wright state raiders": "Wright State",
+  "penn quakers": "Penn", "furman paladins": "Furman",
+  "queens royals": "Queens (NC)", "queens university royals": "Queens (NC)",
+  "tennessee state tigers": "Tennessee State", "idaho vandals": "Idaho",
+  "nc state wolfpack": "NC State", "miami (oh) redhawks": "Miami (OH)",
+  "howard bison": "Howard", "umbc retrievers": "UMBC",
+  "liu sharks": "LIU", "siena saints": "Siena",
+  "prairie view a&m panthers": "Prairie View A&M",
+  "lehigh mountain hawks": "Lehigh",
+};
+
+function normalizeName(name) {
+  if (!name) return '';
+  return ESPN_NAME_MAP[name.toLowerCase()] || name;
+}
+
 function getWinners() {
-  const winners = {}; // teamName -> highest round won
+  const winners = {}; // normalized team name -> highest round won
   for (const game of gamesData) {
-    if (game.status === 'post' && game.round >= 1) {
+    if (isFinished(game.status) && game.round >= 1) {
       const winner = game.teams.find(t => t.winner);
       if (winner) {
-        const current = winners[winner.name] || 0;
-        if (game.round > current) {
-          winners[winner.name] = game.round;
-        }
+        const name = normalizeName(winner.name);
+        const current = winners[name] || 0;
+        if (game.round > current) winners[name] = game.round;
       }
     }
   }
@@ -581,7 +631,7 @@ function computeScore(participant, winnersMap) {
       t.abbrev.toLowerCase() === (team.abbrev || '').toLowerCase()
     );
     const seed = teamObj?.seed || team.seed || 0;
-    const highestRound = winnersMap[team.name] || 0;
+    const highestRound = winnersMap[team.name] || winnersMap[normalizeName(team.name)] || 0;
 
     // Points earned per round this team won
     const roundsEarned = [];
@@ -593,10 +643,13 @@ function computeScore(participant, winnersMap) {
       roundsEarned.push({ round: r, pts });
     }
 
-    // Is this team eliminated?
+    // Is this team eliminated? Check both exact and normalized names
     const eliminated = !highestRound && gamesData.some(g =>
-      g.status === 'post' && g.round >= 1 &&
-      g.teams.some(gt => gt.name === team.name && !gt.winner)
+      isFinished(g.status) && g.round >= 1 &&
+      g.teams.some(gt => {
+        const gName = normalizeName(gt.name);
+        return (gName === team.name || gt.name === team.name) && !gt.winner;
+      })
     );
 
     const maxPts = eliminated ? teamPts : computeTeamMax(seed); // if elim, max = what they already earned
@@ -775,13 +828,16 @@ function renderTeams() {
 
   teamsToShow.sort((a,b) => (a.seed||99) - (b.seed||99)).forEach(t => {
     const seed = t.seed || '?';
-    const highRound = winners[t.name] || 0;
+    const highRound = winners[t.name] || winners[normalizeName(t.name)] || 0;
     let pts = 0;
     for (let r = 1; r <= highRound; r++) pts += (seed * (ROUND_VALUES[r] || 0));
 
     const eliminated = !highRound && gamesData.some(g =>
-      g.status === 'post' && g.round >= 1 &&
-      g.teams.some(gt => gt.name === t.name && !gt.winner)
+      isFinished(g.status) && g.round >= 1 &&
+      g.teams.some(gt => {
+        const gName = normalizeName(gt.name);
+        return (gName === t.name || gt.name === t.name) && !gt.winner;
+      })
     );
 
     const maxPts = eliminated ? pts : computeTeamMax(seed);
