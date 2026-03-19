@@ -964,7 +964,40 @@ function renderLeaderboard() {
 }
 
 // ============================================================
-// RENDER GAMES
+// DEBUG FETCH — called from Live Scores tab button
+// ============================================================
+async function debugFetch() {
+  const out = document.getElementById('debug-result');
+  if (!out) return;
+  out.textContent = 'Fetching...';
+
+  const today = new Date();
+  const dateStr = toNcaaDate(today);
+  const url = `https://data.ncaa.com/casablanca/scoreboard/basketball-men/d1/${dateStr}/scoreboard.json`;
+
+  try {
+    out.textContent = `Trying: ${url}`;
+    const res = await fetch(url, { cache: 'no-store', signal: AbortSignal.timeout(8000) });
+    const text = await res.text();
+    const preview = text.slice(0, 400);
+    out.textContent = `HTTP ${res.status} — ${res.ok ? 'OK' : 'FAILED'}\nBody preview: ${preview}`;
+  } catch(e) {
+    // Try yesterday
+    const yesterday = new Date(today); yesterday.setDate(today.getDate() - 1);
+    const yStr = toNcaaDate(yesterday);
+    const yUrl = `https://data.ncaa.com/casablanca/scoreboard/basketball-men/d1/${yStr}/scoreboard.json`;
+    try {
+      out.textContent = `Today failed (${e.message})\nTrying yesterday: ${yUrl}`;
+      const res2 = await fetch(yUrl, { cache: 'no-store', signal: AbortSignal.timeout(8000) });
+      const text2 = await res2.text();
+      out.textContent = `Yesterday HTTP ${res2.status}\nBody: ${text2.slice(0, 400)}`;
+    } catch(e2) {
+      out.textContent = `Both failed.\nToday error: ${e.message}\nYesterday error: ${e2.message}`;
+    }
+  }
+  document.getElementById('debug-fetch-time').textContent = new Date().toLocaleTimeString();
+}
+
 // ============================================================
 function renderGames() {
   const container = document.getElementById('games-content');
@@ -977,7 +1010,17 @@ function renderGames() {
   });
 
   if (Object.keys(byRound).length === 0) {
-    container.innerHTML = `<div style="color:var(--muted);font-size:14px;padding:32px;text-align:center">No tournament games loaded yet. Live games will appear here during the tournament.</div>`;
+    container.innerHTML = `<div style="color:var(--muted);font-size:14px;padding:32px;text-align:center">
+      No tournament games loaded yet.
+      <div style="margin-top:16px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:12px;font-size:11px;font-family:monospace;text-align:left;max-width:500px;margin-left:auto;margin-right:auto">
+        <div style="color:var(--accent2);font-weight:700;margin-bottom:6px">DEBUG — LIVE SCORES</div>
+        <div>gamesData length: <span style="color:var(--green)">${gamesData.length}</span></div>
+        <div style="margin-top:4px">Last fetch attempt: <span style="color:var(--text)" id="debug-fetch-time">—</span></div>
+        <div style="margin-top:4px">NCAA URL tested: <span style="color:var(--muted)">data.ncaa.com/casablanca/scoreboard/basketball-men/d1/${new Date().toISOString().slice(0,10).replace(/-/g,'/')}/scoreboard.json</span></div>
+        <button onclick="debugFetch()" style="margin-top:8px;padding:6px 12px;background:var(--accent);color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:11px">Run Debug Fetch</button>
+        <div id="debug-result" style="margin-top:8px;word-break:break-all;color:var(--text)"></div>
+      </div>
+    </div>`;
     return;
   }
 
