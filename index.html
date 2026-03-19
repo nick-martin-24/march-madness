@@ -547,10 +547,100 @@ let refreshTimer = null;
 // ============================================================
 // ESPN API
 // ============================================================
+// GAME DATA — NCAA.com scoreboard (CORS-friendly) + ESPN proxy fallback
+// ============================================================
+
+// NCAA.com date format: YYYY/MM/DD
+function toNcaaDate(d) {
+  return d.toISOString().slice(0,10).replace(/-/g, '/');
+}
+
+async function fetchNcaaGames(dateStr) {
+  // dateStr format: "2026/03/18"
+  const url = `https://data.ncaa.com/casablanca/scoreboard/basketball-men/d1/${dateStr}/scoreboard.json`;
+  try {
+    const res = await fetch(url, { cache: 'no-store', signal: AbortSignal.timeout(8000) });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return parseNcaaGames(data);
+  } catch(e) {
+    console.warn('NCAA fetch failed for', dateStr, e.message);
+    return [];
+  }
+}
+
+function parseNcaaGames(data) {
+  const games = [];
+  const roundMap = {
+    'First Four': 0,
+    'First Round': 1, '1st Round': 1,
+    'Second Round': 2, '2nd Round': 2,
+    'Sweet Sixteen': 3, 'Sweet 16': 3,
+    'Elite Eight': 4,
+    'Final Four': 5,
+    'Championship': 6, 'National Championship': 6
+  };
+
+  for (const g of (data?.games || [])) {
+    try {
+      const game = g.game;
+      if (!game) continue;
+
+      // Determine round
+      const roundLabel = game.bracketRound || game.contestName || '';
+      let roundNum = -1;
+      for (const [key, val] of Object.entries(roundMap)) {
+        if (roundLabel.includes(key)) { roundNum = val; break; }
+      }
+      if (roundNum < 0) continue; // not a tournament game
+
+      const home = game.home;
+      const away = game.away;
+      if (!home || !away) continue;
+
+      const statusState = game.gameState; // 'final', 'live', 'pre'
+      const status = statusState === 'final' ? 'post'
+                   : statusState === 'live' ? 'in'
+                   : 'pre';
+
+      const homeScore = parseInt(home.score) || 0;
+      const awayScore = parseInt(away.score) || 0;
+      const homeWon = status === 'post' && homeScore > awayScore;
+      const awayWon = status === 'post' && awayScore > homeScore;
+
+      games.push({
+        id: game.gameID || (home.names?.short + away.names?.short + game.startDate),
+        round: roundNum,
+        roundName: ROUND_NAMES[roundNum] || roundLabel,
+        date: game.startDate,
+        status,
+        statusDetail: status === 'post' ? 'Final' : game.currentPeriod || '',
+        displayClock: game.contestClock || '',
+        period: parseInt(game.currentPeriod) || 0,
+        teams: [
+          {
+            name: away.names?.full || away.names?.short || '',
+            abbrev: away.names?.seo || '',
+            score: awayScore,
+            seed: parseInt(away.seed) || 0,
+            winner: awayWon
+          },
+          {
+            name: home.names?.full || home.names?.short || '',
+            abbrev: home.names?.seo || '',
+            score: homeScore,
+            seed: parseInt(home.seed) || 0,
+            winner: homeWon
+          }
+        ]
+      });
+    } catch(e) { continue; }
+  }
+  return games;
+}
+
 async function espnFetch(url) {
-  // Try direct first (works on desktop/some mobile), then proxies
   const attempts = [
-    () => fetch(url, { signal: AbortSignal.timeout(5000) }),
     () => fetch(`https://corsproxy.io/?${encodeURIComponent(url)}`, { signal: AbortSignal.timeout(10000) }),
     () => fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`, { signal: AbortSignal.timeout(10000) })
   ];
@@ -560,7 +650,6 @@ async function espnFetch(url) {
       if (!res.ok) continue;
       const text = await res.text();
       const outer = JSON.parse(text);
-      // allorigins wraps response in {contents:"..."}
       return outer.contents ? JSON.parse(outer.contents) : outer;
     } catch { continue; }
   }
@@ -571,34 +660,50 @@ async function fetchESPNGames() {
   const allGames = [];
   const seen = new Set();
 
-  const addGames = (events) => {
-    for (const ev of (events || [])) {
-      if (seen.has(ev.id)) continue;
-      const game = parseESPNGame(ev);
-      if (game) { allGames.push(game); seen.add(ev.id); }
+  const addGames = (gameList) => {
+    for (const g of (gameList || [])) {
+      if (seen.has(g.id)) continue;
+      allGames.push(g);
+      seen.add(g.id);
     }
   };
 
-  // Fetch today and yesterday to catch live + recent finals
+  // Primary: NCAA.com — CORS-friendly, no proxy needed
   const today = new Date();
   const yesterday = new Date(today); yesterday.setDate(today.getDate() - 1);
-  const toDateStr = d => d.toISOString().slice(0,10).replace(/-/g,'');
+  const tomorrow = new Date(today); tomorrow.setDate(today.getDate() + 1);
 
-  const fetchDates = [toDateStr(yesterday), toDateStr(today)];
-
-  for (const dateStr of fetchDates) {
-    // groups=100 = NCAA tournament, groups=50 = all college basketball (catches First Four)
-    for (const groups of ['100', '50']) {
-      const url = `https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/scoreboard?groups=${groups}&limit=50&dates=${dateStr}`;
-      const data = await espnFetch(url);
-      if (data) addGames(data.events);
-    }
+  // Fetch a sliding window of dates around today to catch all rounds
+  const fetchDates = [];
+  for (let i = -3; i <= 1; i++) {
+    const d = new Date(today);
+    d.setDate(today.getDate() + i);
+    fetchDates.push(toNcaaDate(d));
   }
 
-  // Also fetch the full tournament date range to accumulate completed rounds
-  const rangeUrl = `https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/scoreboard?groups=100&limit=100&dates=20260317-20260406`;
-  const rangeData = await espnFetch(rangeUrl);
-  if (rangeData) addGames(rangeData.events);
+  await Promise.all(fetchDates.map(async dateStr => {
+    const games = await fetchNcaaGames(dateStr);
+    addGames(games);
+  }));
+
+  // Fallback: ESPN via proxy if NCAA.com returned nothing
+  if (allGames.length === 0) {
+    console.warn('NCAA.com returned no games, trying ESPN proxy...');
+    const toDateStr = d => d.toISOString().slice(0,10).replace(/-/g,'');
+    for (const dateStr of [toDateStr(yesterday), toDateStr(today)]) {
+      const url = `https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/scoreboard?groups=50&limit=100&dates=${dateStr}`;
+      const data = await espnFetch(url);
+      if (data?.events) {
+        for (const ev of data.events) {
+          const game = parseESPNGame(ev);
+          if (game && !seen.has(game.id)) {
+            allGames.push(game);
+            seen.add(game.id);
+          }
+        }
+      }
+    }
+  }
 
   return allGames;
 }
