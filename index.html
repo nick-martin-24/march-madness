@@ -321,7 +321,6 @@
   <div class="header-right">
     <div class="live-dot" id="live-dot" style="opacity:0.3"></div>
     <div class="refresh-info">Updated: <span id="last-updated">--</span></div>
-    <button onclick="debugFetch()" id="debug-btn" style="font-size:11px;padding:4px 10px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--muted);cursor:pointer">🔍 Debug</button>
   </div>
 </header>
 
@@ -330,7 +329,6 @@
 
   <div class="tabs">
     <div class="tab active" onclick="switchTab('leaderboard')">🏆 Leaderboard</div>
-    <div class="tab" onclick="switchTab('games')">🏀 Live Scores</div>
     <div class="tab" onclick="switchTab('teams')">📋 All Teams</div>
     <div class="tab" onclick="switchTab('rules')">📖 Rules</div>
   </div>
@@ -341,9 +339,6 @@
     </div>
   </div>
 
-  <div id="panel-games" class="panel">
-    <div id="games-content">
-      <div class="loading-spinner"><div class="spinner"></div><div style="color:var(--muted);font-size:13px">Loading scores…</div></div>
     </div>
   </div>
 
@@ -541,92 +536,12 @@ const ROUND_NAMES = {
 // STATE
 // ============================================================
 let poolData = null;       // loaded from Gist
-let gamesData = [];        // from ESPN
+let gamesData = [];        // unused - kept for getWinners compatibility
 let gistUrl = '';
 let refreshTimer = null;
 
 // ============================================================
 // ============================================================
-// GAME DATA — fetched via Claude API as server-side proxy (bypasses CORS)
-// ============================================================
-
-function toNcaaDate(d) {
-  return d.toISOString().slice(0,10).replace(/-/g, '/');
-}
-
-async function fetchESPNGames() {
-  const today = new Date();
-  const dates = [];
-  for (let i = -4; i <= 1; i++) {
-    const d = new Date(today);
-    d.setDate(today.getDate() + i);
-    dates.push(d.toISOString().slice(0,10).replace(/-/g,''));
-  }
-  const startDate = dates[0];
-  const endDate = dates[dates.length - 1];
-
-  const prompt = `Search for current 2026 NCAA Men's Basketball Tournament scores and results.
-
-Look up scores from: https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/scoreboard?groups=50&limit=100&dates=${startDate}-${endDate}
-
-Return ONLY a raw JSON array with no markdown formatting, no code fences, no explanation. Each element:
-{"id":"unique","round":0,"roundName":"string","status":"pre|in|post","statusDetail":"Final or time","teams":[{"name":"full name","seed":1,"score":0,"winner":false},{"name":"full name","seed":16,"score":0,"winner":false}]}
-
-Round values: 0=First Four, 1=First Round, 2=Second Round, 3=Sweet 16, 4=Elite Eight, 5=Final Four, 6=Championship.
-Only include NCAA tournament games. Return [] if none found.`;
-
-  try {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 4000,
-        tools: [{ type: 'web_search_20250305', name: 'web_search' }],
-        messages: [{ role: 'user', content: prompt }]
-      })
-    });
-
-    if (!res.ok) throw new Error(`API ${res.status}`);
-    const data = await res.json();
-
-    const textBlock = data.content?.find(b => b.type === 'text');
-    if (!textBlock?.text) throw new Error('No text block');
-
-    const clean = textBlock.text.trim()
-      .replace(/^```json\s*/,'').replace(/^```\s*/,'').replace(/\s*```$/,'').trim();
-
-    // Find the JSON array in the response
-    const arrStart = clean.indexOf('[');
-    const arrEnd = clean.lastIndexOf(']');
-    if (arrStart === -1 || arrEnd === -1) throw new Error('No JSON array found');
-
-    const games = JSON.parse(clean.slice(arrStart, arrEnd + 1));
-    if (!Array.isArray(games)) throw new Error('Not array');
-    console.log('Claude returned', games.length, 'games');
-    return games;
-
-  } catch(e) {
-    console.warn('Score fetch failed:', e.message);
-    return [];
-  }
-}
-
-async function debugFetch() {
-  const btn = document.getElementById('debug-btn');
-  if (btn) btn.textContent = '⏳ Fetching...';
-  try {
-    const games = await fetchESPNGames();
-    gamesData = games;
-    renderAll();
-    alert(`Fetched ${games.length} tournament games.\n\n${games.length > 0 ? 'First: ' + JSON.stringify(games[0]).slice(0,200) : 'No games returned — tournament may not have started or API did not find results.'}`);
-  } catch(e) {
-    alert('Error: ' + e.message);
-  } finally {
-    if (btn) btn.textContent = '🔍 Debug';
-  }
-}
-
 // Determine winner name from completed games
 function getWinners() {
   const winners = {}; // teamName -> highest round won
@@ -833,68 +748,6 @@ function renderLeaderboard() {
     </div>`;
   });
   html += '</div>';
-  container.innerHTML = html;
-}
-
-// ============================================================
-function renderGames() {
-  const container = document.getElementById('games-content');
-  const poolTeams = (poolData?.participants || []).flatMap(p => p.teams.map(t => t.name.toLowerCase()));
-
-  const byRound = {};
-  gamesData.filter(g => g.round >= 1).forEach(g => {
-    if (!byRound[g.round]) byRound[g.round] = [];
-    byRound[g.round].push(g);
-  });
-
-  if (Object.keys(byRound).length === 0) {
-    container.innerHTML = `<div style="color:var(--muted);font-size:14px;padding:32px;text-align:center">
-      No tournament games loaded yet. Click 🔍 Debug in the header to force a fetch.
-    </div>`;
-    return;
-  }
-
-  let html = '';
-  const rounds = Object.keys(byRound).sort((a,b) => b-a);
-  for (const r of rounds) {
-    const games = byRound[r];
-    html += `<div class="round-section"><div class="round-label">${ROUND_NAMES[r] || 'Round '+r}</div><div class="games-grid">`;
-    for (const g of games) {
-      const isLive = g.status === 'in';
-      const isFinal = g.status === 'post';
-      const statusCls = isLive ? 'live' : isFinal ? 'final' : 'scheduled';
-      const statusText = isLive ? `🔴 LIVE · ${g.displayClock} / ${g.period}H` : isFinal ? 'Final' : g.statusDetail || 'Scheduled';
-
-      const [t1, t2] = g.teams;
-      if (!t1 || !t2) continue;
-
-      const t1InPool = poolTeams.includes(t1.name.toLowerCase());
-      const t2InPool = poolTeams.includes(t2.name.toLowerCase());
-      const t1Winning = t1.score > t2.score;
-      const t2Winning = t2.score > t1.score;
-
-      html += `<div class="game-card ${isLive?'live':isFinal?'final':''}">
-        <div class="game-status ${statusCls}">${statusText}</div>
-        <div class="game-team">
-          <div class="team-name-row">
-            ${t1InPool ? '<div class="in-pool-indicator" title="In your pool"></div>' : ''}
-            <div class="seed-badge">${t1.seed||'?'}</div>
-            <span style="font-weight:${t1.winner?700:400}">${t1.name}</span>
-          </div>
-          <div class="team-score ${(isLive||isFinal)&&t1Winning?'winning':''}">${isFinal||isLive?t1.score:''}</div>
-        </div>
-        <div class="game-team">
-          <div class="team-name-row">
-            ${t2InPool ? '<div class="in-pool-indicator" title="In your pool"></div>' : ''}
-            <div class="seed-badge">${t2.seed||'?'}</div>
-            <span style="font-weight:${t2.winner?700:400}">${t2.name}</span>
-          </div>
-          <div class="team-score ${(isLive||isFinal)&&t2Winning?'winning':''}">${isFinal||isLive?t2.score:''}</div>
-        </div>
-      </div>`;
-    }
-    html += '</div></div>';
-  }
   container.innerHTML = html;
 }
 
@@ -1162,8 +1015,6 @@ async function refresh() {
     renderLeaderboard();
     if (document.getElementById('panel-teams').classList.contains('active')) renderTeams();
 
-    // Then fetch ESPN scores in the background and re-render with full data
-    gamesData = await fetchESPNGames();
     renderAll();
     document.getElementById('last-updated').textContent = new Date().toLocaleTimeString();
   } catch (e) {
@@ -1174,7 +1025,6 @@ async function refresh() {
 
 function renderAll() {
   renderLeaderboard();
-  if (document.getElementById('panel-games').classList.contains('active')) renderGames();
   if (document.getElementById('panel-teams').classList.contains('active')) renderTeams();
 }
 
@@ -1219,19 +1069,19 @@ function handleAdminTap() {
 document.addEventListener('keydown', e => {
   if (e.ctrlKey && e.shiftKey && e.key === 'A') {
     const btn = document.getElementById('config-btn');
-    btn.style.display = btn.style.display === 'none' ? 'flex' : 'none';
+    const showing = btn.style.display !== 'none';
+    btn.style.display = showing ? 'none' : 'flex';
   }
 });
 
 function switchTab(name) {
   document.querySelectorAll('.tab').forEach((t,i) => {
-    const names = ['leaderboard','games','teams','rules'];
+    const names = ['leaderboard','teams','rules'];
     t.classList.toggle('active', names[i] === name);
   });
   document.querySelectorAll('.panel').forEach(p => {
     p.classList.toggle('active', p.id === `panel-${name}`);
   });
-  if (name === 'games') renderGames();
   if (name === 'teams') renderTeams();
 }
 
