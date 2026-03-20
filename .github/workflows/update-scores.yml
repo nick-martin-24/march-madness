@@ -2,9 +2,9 @@ name: Update Tournament Scores
 
 on:
   schedule:
-    # Run every 5 minutes during tournament hours (noon-midnight ET = 16:00-04:00 UTC)
-    - cron: '*/5 16-23 * * *'   # 4pm-11:59pm UTC (noon-7:59pm ET)
-    - cron: '*/5 0-4 * * *'     # midnight-4am UTC (8pm-midnight ET)
+    # Run every 2 minutes during tournament hours (noon-midnight ET = 16:00-04:00 UTC)
+    - cron: '*/2 16-23 * * *'   # 4pm-11:59pm UTC (noon-7:59pm ET)
+    - cron: '*/2 0-4 * * *'     # midnight-4am UTC (8pm-midnight ET)
   workflow_dispatch:              # Allow manual trigger from GitHub Actions tab
 
 jobs:
