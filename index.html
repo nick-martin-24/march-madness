@@ -643,8 +643,8 @@ function computeScore(participant, winnersMap) {
       roundsEarned.push({ round: r, pts });
     }
 
-    // Is this team eliminated? Check both exact and normalized names
-    const eliminated = !highestRound && gamesData.some(g =>
+    // Is this team eliminated? Lost any game at any round (even if they won earlier rounds)
+    const eliminated = gamesData.some(g =>
       isFinished(g.status) && g.round >= 1 &&
       g.teams.some(gt => {
         const gName = normalizeName(gt.name);
@@ -832,7 +832,7 @@ function renderTeams() {
     let pts = 0;
     for (let r = 1; r <= highRound; r++) pts += (seed * (ROUND_VALUES[r] || 0));
 
-    const eliminated = !highRound && gamesData.some(g =>
+    const eliminated = gamesData.some(g =>
       isFinished(g.status) && g.round >= 1 &&
       g.teams.some(gt => {
         const gName = normalizeName(gt.name);
