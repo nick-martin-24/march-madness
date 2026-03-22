@@ -120,25 +120,29 @@ def parse_event(ev):
     try:
         comp = ev["competitions"][0]
 
-        # Get round from note headline first
+        # Get round from note headline
         note = ""
         for n in ev.get("notes", []):
             note = n.get("headline", "")
             if note:
                 break
 
-        round_num = -1
+        note_round = -1
         for key, val in NOTE_TO_ROUND.items():
             if key in note:
-                round_num = val
+                note_round = val
                 break
 
-        # Fall back to date-based round detection
-        if round_num < 0:
-            date_str = ev.get("date", "")[:10]
-            round_num = ROUND_BY_DATE.get(date_str, -1)
+        # Date is authoritative — ESPN notes are sometimes wrong
+        date_str = ev.get("date", "")[:10]
+        date_round = ROUND_BY_DATE.get(date_str, -1)
 
-        if round_num < 0:
+        # Use date-based round if available, fall back to note
+        if date_round >= 0:
+            round_num = date_round
+        elif note_round >= 0:
+            round_num = note_round
+        else:
             return None
 
         # Parse teams
