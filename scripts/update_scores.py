@@ -133,8 +133,21 @@ def parse_event(ev):
                 note_round = val
                 break
 
-        # Date is authoritative — ESPN notes are sometimes wrong
-        date_str = ev.get("date", "")[:10]
+        # Get game date in Eastern time (UTC-4 during EDT)
+        # ESPN dates are UTC, games are played in ET — must convert to avoid date boundary errors
+        raw_date = ev.get("date", "")
+        if raw_date:
+            from datetime import datetime, timezone, timedelta
+            et_offset = timedelta(hours=-4)  # EDT (UTC-4)
+            try:
+                utc_dt = datetime.fromisoformat(raw_date.replace("Z", "+00:00"))
+                et_dt = utc_dt + et_offset
+                date_str = et_dt.strftime("%Y-%m-%d")
+            except Exception:
+                date_str = raw_date[:10]
+        else:
+            date_str = ""
+
         date_round = ROUND_BY_DATE.get(date_str, -1)
 
         # Use date-based round if available, fall back to note
