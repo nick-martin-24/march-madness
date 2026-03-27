@@ -7,7 +7,7 @@ Filters to tournament games by checking if both teams are known tournament teams
 import json
 import os
 import requests
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone, timedelta
 
 GIST_ID    = os.environ["GIST_ID"]
 GIST_TOKEN = os.environ["GIST_TOKEN"]
@@ -197,11 +197,20 @@ def parse_event(ev):
 
 
 def fetch_all_games():
-    now   = datetime.now(timezone.utc)
     games = {}
 
-    for offset in range(-4, 2):
-        d = (now + timedelta(days=offset)).strftime("%Y%m%d")
+    # Fetch every tournament date explicitly — sliding window misses completed rounds
+    tournament_dates = [
+        "20260317", "20260318",  # First Four
+        "20260319", "20260320",  # First Round
+        "20260321", "20260322",  # Second Round
+        "20260326", "20260327",  # Sweet 16
+        "20260328", "20260329",  # Elite Eight
+        "20260404",              # Final Four
+        "20260406",              # Championship
+    ]
+
+    for d in tournament_dates:
         print(f"  Fetching {d}...")
         events = fetch_espn(d)
         count = 0
@@ -212,7 +221,7 @@ def fetch_all_games():
                 count += 1
                 print(f"    + {g['roundName']}: {g['teams'][0]['name']} vs {g['teams'][1]['name']} [{g['status']}]")
         if count == 0:
-            print(f"    (no tournament games on this date)")
+            print(f"    (no tournament games)")
 
     print(f"  Total: {len(games)} tournament games")
     return list(games.values())
